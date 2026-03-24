@@ -29,25 +29,28 @@
             position: relative; overflow: hidden;
         }
 
-        /* --- 1. 왼쪽 24개 블록 피치/데시벨 미터 --- */
+        /* --- 1. 정교한 튜너 스타일 피치 미터 --- */
         .meter-aside {
             width: 50px; height: 100%;
             background: rgba(0,0,0,0.4);
             display: flex; flex-direction: column-reverse; /* 아래부터 쌓임 */
-            padding: 10px 5px; box-sizing: border-box; gap: 4px;
+            padding: 10px 5px; box-sizing: border-box; gap: 2px;
             border-right: 1px solid #6d4c41;
         }
         .block {
             width: 100%; flex: 1;
             background-color: var(--block-empty);
-            border-radius: 2px;
-            transition: background-color 0.1s;
+            border-radius: 1px;
+            transition: background-color 0.1s, box-shadow 0.1s;
         }
-        /* 블록 색상 정의 (24개 기준) */
-        /* 1-8번: 파랑, 9-16번: 초록, 17-24번: 빨강 */
-        .block.low.active { background-color: #448aff; box-shadow: 0 0 8px #448aff; }
-        .block.mid.active { background-color: #66bb6a; box-shadow: 0 0 8px #66bb6a; }
-        .block.high.active { background-color: #ef5350; box-shadow: 0 0 8px #ef5350; }
+        
+        /* 튜너 색상 정의 (3단계) */
+        /* 하단 (파랑, 저음) */
+        .block.active.low { background-color: #2196f3; box-shadow: 0 0 5px #2196f3; }
+        /* 중간 (초록, 정음) */
+        .block.active.mid { background-color: #4caf50; box-shadow: 0 0 10px #4caf50; }
+        /* 상단 (빨강, 고음) */
+        .block.active.high { background-color: #f44336; box-shadow: 0 0 5px #f44336; }
 
         /* 2. 메인 게임 영역 */
         .game-area {
@@ -118,7 +121,7 @@
 
 <script>
 const NOTES = ['도', '레', '미', '파', '솔', '라', '시'];
-const FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88];
+const FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88]; // C4~B4
 
 let audioCtx, analyser, micStream;
 let level = 1, score = 0, lives = 3;
@@ -126,15 +129,17 @@ let questionSeq = [], currentStep = 0;
 let isListening = false, isPlaying = false;
 let blocks = [];
 
-// 1. 24개 블록 생성
+// 1. 32개 블록 생성 (튜너 스타일)
 function createMeter() {
     const meter = document.getElementById('meter');
-    for (let i = 0; i < 24; i++) {
+    meter.innerHTML = ''; // 초기화
+    blocks = [];
+    for (let i = 0; i < 32; i++) {
         const div = document.createElement('div');
         div.className = 'block';
-        if (i < 8) div.classList.add('low');
-        else if (i < 16) div.classList.add('mid');
-        else div.classList.add('high');
+        if (i < 10) div.classList.add('low'); // 하단 (파랑)
+        else if (i < 22) div.classList.add('mid'); // 중간 (초록)
+        else div.classList.add('high'); // 상단 (빨강)
         meter.appendChild(div);
         blocks.push(div);
     }
@@ -148,7 +153,7 @@ async function initGame() {
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = 2048;
         micStream.connect(analyser);
-        createMeter();
+        createMeter(); // 튜너 UI 생성
     }
     document.getElementById('start-btn').style.display = 'none';
     startNewLevel();
@@ -218,17 +223,17 @@ function updateFrame() {
     const pitch = getPitch(buffer, audioCtx.sampleRate);
 
     // 미터 업데이트 (소리가 날 때만)
-    if (rms > 0.01) {
-        // 음 높이에 따라 블록 활성화 개수 결정 (C4~B4 범위)
-        let activeCount = 0;
-        if (pitch !== -1) {
-            const midi = 12 * Math.log2(pitch / 261.63); // 도(0) ~ 시(11)
-            activeCount = Math.round(((midi + 2) / 15) * 24); // 범위를 24개 블록으로 매핑
-            activeCount = Math.max(1, Math.min(24, activeCount));
-        }
-        updateMeter(activeCount);
+    if (pitch !== -1 && rms > 0.05) {
+        const midi = 12 * Math.log2(pitch / 261.63); // 도(0) ~ 시(11)
+        
+        // 정교한 튜너 매핑 로직
+        // C4(도) ~ B4(시) 범위를 32개 블록으로 매핑
+        let activeCount = Math.round(((midi + 2) / 15) * 32); 
+        activeCount = Math.max(1, Math.min(32, activeCount));
+        
+        updateMeter(activeCount); // 튜너 바 업데이트
     } else {
-        clearMeter();
+        clearMeter(); // 소리가 없으면 미터 초기화
     }
 
     // 정답 판정
@@ -267,13 +272,15 @@ function updateFrame() {
     requestAnimationFrame(updateFrame);
 }
 
+// 튜너 바 업데이트 (정교하게 차오름)
 function updateMeter(count) {
     blocks.forEach((b, i) => {
-        if (i < count) b.classList.add('active');
-        else b.classList.remove('active');
+        if (i < count) b.classList.add('active'); // 활성화
+        else b.classList.remove('active'); // 비활성화
     });
 }
 
+// 미터 초기화
 function clearMeter() {
     blocks.forEach(b => b.classList.remove('active'));
     document.getElementById('user-note-info').innerText = "";
@@ -291,6 +298,7 @@ function showGameOver() {
     document.getElementById('final-score').innerText = score;
 }
 
+// 피치 검출 알고리즘 (AMDF)
 function getPitch(buffer, sampleRate) {
     let bestP = -1, minD = Infinity;
     for (let p = 35; p < 200; p++) {
