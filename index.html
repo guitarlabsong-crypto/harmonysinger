@@ -2,181 +2,235 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pitch Copy Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SYM Guitar Lab Singing Test</title>
     <style>
-        body { text-align: center; font-family: 'Pretendard', sans-serif; background: #f0f2f5; padding-top: 50px; }
-        .container { background: white; width: 80%; max-width: 400px; margin: auto; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        #level-info { font-size: 1.2rem; color: #666; }
-        #target-notes { font-size: 2.5rem; font-weight: bold; margin: 20px 0; color: #007aff; min-height: 60px; }
-        #user-note { font-size: 1.5rem; color: #ff9500; height: 30px; }
-        button { background: #007aff; color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 1.1rem; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.95); }
-        .status-msg { margin-top: 20px; font-weight: bold; }
+        /* 1. 게임 화면 전체 브라운색 테마 적용 */
+        :root {
+            --bg-dark: #2d1b15;    /* 가장 어두운 브라운 */
+            --bg-main: #4e342e;    /* 메인 브라운 */
+            --accent: #d7ccc8;     /* 연한 베이지 (글자용) */
+            --gold: #ffb74d;       /* 포인트 컬러 (진행도) */
+        }
+
+        body { 
+            margin: 0; padding: 0;
+            background-color: var(--bg-dark); 
+            font-family: 'Apple SD Gothic Neo', sans-serif;
+            display: flex; align-items: center; justify-content: center;
+            height: 100vh; color: var(--accent);
+            overflow: hidden;
+        }
+
+        .container { 
+            background-color: var(--bg-main); 
+            width: 90%; max-width: 400px; 
+            height: 80vh;
+            border-radius: 40px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: space-around;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            border: 2px solid #6d4c41;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .header { text-align: center; }
+        .brand { font-size: 0.9rem; letter-spacing: 2px; opacity: 0.8; margin-bottom: 5px; }
+        .title { font-size: 1.8rem; font-weight: bold; color: white; margin: 0; }
+
+        /* 2. 마이크 형태 중앙 배치 */
+        .mic-container {
+            width: 120px; height: 120px;
+            background: #6d4c41;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            border: 4px solid var(--bg-dark);
+        }
+        /* 단순 CSS로 그린 마이크 아이콘 */
+        .mic-icon {
+            width: 30px; height: 50px;
+            background: var(--accent);
+            border-radius: 15px;
+            position: relative;
+        }
+        .mic-icon::after {
+            content: ''; position: absolute; bottom: -15px; left: -10px;
+            width: 50px; height: 30px; border-bottom: 4px solid var(--accent);
+            border-radius: 50%;
+        }
+
+        #note-display { font-size: 5rem; font-weight: 900; color: white; }
+        #status-text { font-size: 1.1rem; min-height: 1.5rem; text-align: center; }
+        #level-info { font-size: 1.2rem; color: var(--gold); font-weight: bold; }
+
+        button { 
+            background: #8d6e63; color: white; border: none; 
+            padding: 15px 40px; border-radius: 30px; font-size: 1.2rem; font-weight: bold;
+            cursor: pointer; transition: 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        button:active { transform: scale(0.95); background: #a1887f; }
+        
+        /* 음정 인식 시 시각적 효과 */
+        .active-mic { border-color: var(--gold); box-shadow: 0 0 30px var(--gold); }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="level-info">Level 1</div>
-    <div id="target-notes">준비되셨나요?</div>
-    <div id="user-note">내 목소리: -</div>
-    <p id="instruction">시작 버튼을 눌러 소리를 듣고 따라 하세요!</p>
-    <button id="start-btn" onclick="initGame()">게임 시작</button>
-    <div class="status-msg" id="status"></div>
+    <div class="header">
+        <div class="brand">SONG,YOUNG-MIN Guitar Lab</div>
+        <h1 class="title">Singing Test</h1>
+    </div>
+
+    <div id="level-info">준비되셨나요?</div>
+
+    <div class="mic-container" id="mic-visual">
+        <div id="note-display" style="display: none;">?</div>
+        <div class="mic-icon" id="mic-icon"></div>
+    </div>
+
+    <div id="status-text">START 버튼을 누르세요.</div>
+    
+    <div id="user-pitch-info" style="color: var(--gold); font-weight: bold;"></div>
+
+    <button id="main-btn" onclick="startGame()">START GAME</button>
 </div>
 
 <script>
 /* -----------------------------------------------------------
-   1. 기본 설정 및 변수
+   [로직] 3. 다이아토닉(C, D, E, F, G, A, B)만 사용하도록 설정
 ----------------------------------------------------------- */
-const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const FREQS = [261.63, 277.18, 293.66, 311.13, 329.63, 349.23, 369.99, 392.00, 415.30, 440.00, 466.16, 493.88]; // 도(C4)~시(B4) 주파수
+const NOTES = ['도', '레', '미', '파', '솔', '라', '시'];
+const FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88]; // C4 ~ B4
 
-let currentLevel = 1;      // 현재 레벨 (문제 개수)
-let targetSequence = [];   // 맞춰야 할 음들의 배열
-let userProgress = 0;      // 사용자가 현재 순서에서 몇 번째 음까지 맞췄는지
-let isListening = false;   // 현재 마이크로 음을 체크 중인지 여부
+let audioCtx, analyser, micStream;
+let level = 1;
+let questionSequence = [];
+let currentStep = 0;
+let isListening = false;
 
-let audioCtx, analyser, microphone;
-
-/* -----------------------------------------------------------
-   2. 게임 시작 및 레벨 세팅
------------------------------------------------------------ */
-async function initGame() {
+async function startGame() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStream = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        micStream.connect(analyser);
     }
-    document.getElementById('start-btn').style.display = 'none';
-    startNewLevel();
-}
-
-function startNewLevel() {
-    userProgress = 0;
-    targetSequence = [];
-    document.getElementById('level-info').innerText = `Level ${currentLevel}`;
-    document.getElementById('status').innerText = "문제를 듣는 중...";
     
-    // 레벨 숫자만큼 랜덤 음계 생성
-    for(let i=0; i < currentLevel; i++) {
-        let randomIndex = Math.floor(Math.random() * NOTES.length);
-        targetSequence.push(randomIndex);
-    }
-
-    playSequence(); // 생성된 음들을 소리로 들려줌
+    document.getElementById('main-btn').style.display = 'none';
+    nextLevel();
 }
 
-/* -----------------------------------------------------------
-   3. 소리 재생 로직 (문제 들려주기)
------------------------------------------------------------ */
-async function playSequence() {
+function nextLevel() {
+    currentStep = 0;
+    questionSequence = [];
+    document.getElementById('level-info').innerText = `Level ${level}`;
+    
+    // 다이아토닉 범위 내에서 랜덤 문제 생성
+    for(let i=0; i < level; i++) {
+        questionSequence.push(Math.floor(Math.random() * NOTES.length));
+    }
+    
+    playQuestion();
+}
+
+// 문제 들려주기
+async function playQuestion() {
     isListening = false;
-    let displayStr = "";
-    
-    for (let i = 0; i < targetSequence.length; i++) {
-        let noteIdx = targetSequence[i];
-        displayStr += NOTES[noteIdx] + " ";
-        document.getElementById('target-notes').innerText = displayStr;
-        
-        await playTone(FREQS[noteIdx], 0.6); // 0.6초간 재생
-        await new Promise(r => setTimeout(r, 200)); // 음 사이 간격
+    document.getElementById('mic-icon').style.display = 'block';
+    document.getElementById('note-display').style.display = 'none';
+    document.getElementById('status-text').innerText = "음정을 잘 들으세요...";
+
+    for (let idx of questionSequence) {
+        // 화면에 음 이름 잠시 표시
+        document.getElementById('status-text').innerText = `${NOTES[idx]}!`;
+        await playTone(FREQS[idx]);
+        await new Promise(r => setTimeout(r, 400));
     }
+
+    document.getElementById('status-text').innerText = "이제 똑같이 부르세요!";
+    document.getElementById('mic-icon').style.display = 'none';
+    document.getElementById('note-display').style.display = 'block';
+    document.getElementById('note-display').innerText = "?";
     
-    document.getElementById('status').innerText = "이제 따라 부르세요!";
-    startListening();
+    isListening = true;
+    startDetection();
 }
 
-function playTone(freq, duration) {
+function playTone(freq) {
     return new Promise(resolve => {
-        let osc = audioCtx.createOscillator();
-        let gain = audioCtx.createGain();
-        osc.frequency.value = freq;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setTargetAtTime(0.5, audioCtx.currentTime, 0.1);
+        gain.gain.setTargetAtTime(0, audioCtx.currentTime + 0.6, 0.1);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-        osc.stop(audioCtx.currentTime + duration);
-        setTimeout(resolve, duration * 1000);
+        osc.stop(audioCtx.currentTime + 0.8);
+        setTimeout(resolve, 800);
     });
 }
 
-/* -----------------------------------------------------------
-   4. 음성 분석 및 판정 로직
------------------------------------------------------------ */
-async function startListening() {
-    if (!microphone) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        microphone = audioCtx.createMediaStreamSource(stream);
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 2048;
-        microphone.connect(analyser);
-    }
-    isListening = true;
-    checkPitch();
-}
-
-function checkPitch() {
+// 음성 인식 루프
+function startDetection() {
     if (!isListening) return;
 
     const buffer = new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(buffer);
-    
-    const pitch = autoCorrelate(buffer, audioCtx.sampleRate);
+    const pitch = getPitch(buffer, audioCtx.sampleRate);
 
     if (pitch !== -1) {
-        const noteIdx = getNoteIndex(pitch);
-        const noteName = NOTES[noteIdx];
-        document.getElementById('user-note').innerText = `내 목소리: ${noteName}`;
+        // 주파수를 반음 단위로 계산 (C4=261.63Hz 기준)
+        const semi = Math.round(12 * Math.log2(pitch / 261.63));
+        const mapping = {0:0, 2:1, 4:2, 5:3, 7:4, 9:5, 11:6}; // C Major 다이아토닉 매핑
+        const detectedNote = ((semi % 12) + 12) % 12;
 
-        // 정답 판정: 현재 맞춰야 할 순서의 음과 일치하는가?
-        if (noteIdx === targetSequence[userProgress]) {
-            userProgress++;
-            document.getElementById('status').innerText = `정답! (${userProgress}/${currentLevel})`;
+        if (mapping.hasOwnProperty(detectedNote)) {
+            const noteIdx = mapping[detectedNote];
+            document.getElementById('user-pitch-info').innerText = `내 목소리: ${NOTES[noteIdx]}`;
             
-            if (userProgress >= currentLevel) {
-                // 레벨 클리어
-                isListening = false;
-                currentLevel++;
-                setTimeout(() => {
-                    alert("성공! 다음 레벨로 넘어갑니다.");
-                    startNewLevel();
-                }, 500);
-                return;
+            // 시각적 피드백 (마이크 빛남)
+            document.getElementById('mic-visual').classList.add('active-mic');
+            setTimeout(() => document.getElementById('mic-visual').classList.remove('active-mic'), 200);
+
+            // 정답 판정
+            if (noteIdx === questionSequence[currentStep]) {
+                currentStep++;
+                if (currentStep >= questionSequence.length) {
+                    isListening = false;
+                    document.getElementById('status-text').innerText = "통과! 다음 레벨로.";
+                    level++;
+                    setTimeout(nextLevel, 1500);
+                    return;
+                } else {
+                    document.getElementById('status-text').innerText = `맞았습니다! (${currentStep}/${level})`;
+                }
             }
         }
     }
-    requestAnimationFrame(checkPitch);
+    requestAnimationFrame(startDetection);
 }
 
-// 주파수를 음계 인덱스로 변환하는 공식
-function getNoteIndex(frequency) {
-    const semiTone = 12 * (Math.log(frequency / 261.63) / Math.log(2)); // C4 기준
-    return Math.round(semiTone) % 12;
-}
+// 주파수 추출 (AMDF)
+function getPitch(buffer, sampleRate) {
+    let rms = 0;
+    for (let i = 0; i < buffer.length; i++) rms += buffer[i] * buffer[i];
+    if (Math.sqrt(rms / buffer.length) < 0.05) return -1; // 소리가 너무 작으면 무시
 
-// 피치 검출 알고리즘 (주파수 찾기)
-function autoCorrelate(buffer, sampleRate) {
-    let sum = 0;
-    for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
-    if (Math.sqrt(sum / buffer.length) < 0.02) return -1; // 소리가 너무 작으면 -1 반환
-
-    // 실제로는 훨씬 복잡한 로직이 필요하지만, 학습용으로 간단히 구현
-    // 정밀도를 높이려면 PitchDetect.js 같은 외부 라이브러리 사용 권장
-    let bestOffset = -1;
-    let bestCorrelation = 0;
-    for (let offset = 20; offset < 500; offset++) {
-        let correlation = 0;
-        for (let i = 0; i < buffer.length - offset; i++) {
-            correlation += buffer[i] * buffer[i + offset];
-        }
-        if (correlation > bestCorrelation) {
-            bestCorrelation = correlation;
-            bestOffset = offset;
-        }
+    let bestP = -1;
+    let minD = Infinity;
+    for (let p = 40; p < 500; p++) {
+        let d = 0;
+        for (let i = 0; i < buffer.length - p; i++) d += Math.abs(buffer[i] - buffer[i + p]);
+        if (d < minD) { minD = d; bestP = p; }
     }
-    return sampleRate / bestOffset;
+    return sampleRate / bestP;
 }
 </script>
-
 </body>
 </html>
