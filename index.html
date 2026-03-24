@@ -11,6 +11,7 @@
             --accent: #d7ccc8;
             --gold: #ffb74d;
             --red: #ff5252;
+            --bar-bg: #6d4c41;
         }
 
         body { 
@@ -22,49 +23,54 @@
 
         .container { 
             background-color: var(--bg-main); 
-            width: 95%; max-width: 500px; height: 90vh;
-            border-radius: 40px; display: flex; 
+            width: 95%; max-width: 450px; height: 90vh;
+            border-radius: 40px; display: flex; flex-direction: column;
             box-shadow: 0 20px 50px rgba(0,0,0,0.6); border: 2px solid #6d4c41;
-            position: relative; overflow: hidden;
+            position: relative; overflow: hidden; padding: 20px; box-sizing: border-box;
         }
 
-        /* 왼쪽 파형 그래프 영역 */
-        .visualizer-container {
-            width: 80px; height: 100%;
-            background: rgba(0,0,0,0.2);
-            border-right: 1px solid #6d4c41;
-            position: relative;
-        }
-        #waveform { width: 100%; height: 100%; }
-
-        /* 오른쪽 게임 메인 영역 */
-        .game-main {
-            flex: 1; display: flex; flex-direction: column; 
-            align-items: center; justify-content: space-between;
-            padding: 30px 15px; box-sizing: border-box;
-        }
-
-        .header { text-align: center; width: 100%; }
+        /* 헤더 영역 */
+        .header { text-align: center; width: 100%; margin-bottom: 10px; }
         .score-row { display: flex; justify-content: space-between; width: 100%; font-weight: bold; color: var(--gold); }
         .brand { font-size: 0.7rem; letter-spacing: 1px; opacity: 0.7; }
         .title { font-size: 1.4rem; font-weight: bold; color: white; margin: 5px 0; }
-
-        .mic-container {
-            width: 130px; height: 130px; background: #6d4c41;
-            border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            border: 4px solid var(--bg-dark); transition: 0.3s;
-        }
-        #target-display { font-size: 1.5rem; font-weight: 900; color: white; text-align: center; }
-        
-        #status-text { font-size: 1rem; text-align: center; height: 3rem; color: #fff; line-height: 1.4; }
         .life-ui { color: var(--red); font-size: 1.2rem; }
 
+        /* 게임 상태 및 문제 표시 */
+        #status-text { font-size: 1rem; text-align: center; height: 3rem; color: #fff; line-height: 1.4; margin-top: 10px; }
+        #target-display { font-size: 1.5rem; font-weight: 900; color: var(--gold); text-align: center; margin-bottom: 15px; min-height: 1.8rem;}
+
+        /* --- 핵심: 음계 막대 비주얼라이저 --- */
+        .visualizer-container {
+            width: 100%; display: flex; flex-direction: column; gap: 8px;
+            margin-bottom: 20px; flex: 1; justify-content: center;
+        }
+        .note-bar-wrapper {
+            display: flex; align-items: center; width: 100%; gap: 10px;
+        }
+        .note-label {
+            width: 30px; text-align: right; font-weight: bold; color: var(--accent); font-size: 0.9rem;
+        }
+        .bar-bg {
+            flex: 1; height: 12px; background-color: var(--bar-bg);
+            border-radius: 6px; overflow: hidden; position: relative;
+        }
+        .bar-fill {
+            height: 100%; background-color: var(--gold); width: 0%;
+            border-radius: 6px; 
+            /* 고무줄처럼 부드러운 움직임 */
+            transition: width 0.1s ease-out, background-color 0.2s; 
+        }
+        /* 현재 부르는 음 강조 */
+        .active-bar .bar-fill { background-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        .active-bar .note-label { color: #fff; }
+
+        /* 컨트롤 영역 */
         #replay-btn {
             background: rgba(255,255,255,0.1); border: 1px solid var(--accent); color: var(--accent);
             padding: 8px 16px; border-radius: 20px; font-size: 0.8rem; cursor: pointer;
-            visibility: hidden;
+            visibility: hidden; margin-bottom: 15px;
         }
-
         .main-btn { 
             background: #8d6e63; color: white; border: none; 
             padding: 15px 40px; border-radius: 30px; font-size: 1.1rem; font-weight: bold;
@@ -76,54 +82,44 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(45, 27, 21, 0.98);
             display: none; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 100;
+            z-index: 100; border-radius: 40px;
         }
-        .active-mic { border-color: var(--gold); box-shadow: 0 0 25px var(--gold); }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="visualizer-container">
-        <canvas id="waveform"></canvas>
+    <div id="game-over">
+        <h2 style="color:var(--red); font-size: 2.5rem;">GAME OVER</h2>
+        <p style="font-size: 1.2rem;">최종 점수: <span id="final-score">0</span></p>
+        <button class="main-btn" onclick="location.reload()">다시 시작</button>
     </div>
 
-    <div class="game-main">
-        <div id="game-over">
-            <h2 style="color:var(--red); font-size: 2.5rem;">GAME OVER</h2>
-            <p style="font-size: 1.2rem;">최종 점수: <span id="final-score">0</span></p>
-            <button class="main-btn" onclick="location.reload()">다시 시작</button>
+    <div class="header">
+        <div class="score-row">
+            <span>SCORE: <span id="score">0</span></span>
+            <span class="life-ui" id="life-ui">♥♥♥</span>
         </div>
-
-        <div class="header">
-            <div class="score-row">
-                <span>SCORE: <span id="score">0</span></span>
-                <span class="life-ui" id="life-ui">♥♥♥</span>
-            </div>
-            <div class="brand">SONG,YOUNG-MIN Guitar Lab</div>
-            <h1 class="title">Singing Test</h1>
-            <div id="level-info" style="color: var(--gold)">Level 1</div>
-        </div>
-
-        <div id="status-text">버튼을 눌러 마이크를 활성화하세요.</div>
-        
-        <div class="mic-container" id="mic-visual">
-            <div id="target-display">🎤</div>
-        </div>
-
-        <button id="replay-btn" onclick="playQuestion()">음정 다시 듣기 ↻</button>
-
-        <div id="user-pitch-info" style="color: var(--gold); font-weight: bold; height: 1.2rem;"></div>
-
-        <button id="start-btn" class="main-btn" onclick="startGame()">START GAME</button>
+        <div class="brand">SONG,YOUNG-MIN Guitar Lab</div>
+        <h1 class="title">Singing Test</h1>
+        <div id="level-info" style="color: var(--gold)">Level 1</div>
     </div>
+
+    <div id="status-text">START 버튼을 눌러 마이크를 연결하세요.</div>
+    <div id="target-display">🎤</div>
+
+    <div class="visualizer-container" id="visualizer">
+        </div>
+
+    <button id="replay-btn" onclick="playQuestion()">음정 다시 듣기 ↻</button>
+    <button id="start-btn" class="main-btn" onclick="startGame()">START GAME</button>
 </div>
 
 <script>
 const NOTES = ['도', '레', '미', '파', '솔', '라', '시'];
-const FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88];
+const FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88]; // C4~B4
 
-let audioCtx, analyser, micStream, canvasCtx, canvas;
+let audioCtx, analyser, micStream;
 let level = 1;
 let score = 0;
 let lives = 3;
@@ -132,13 +128,34 @@ let currentStep = 0;
 let isListening = false;
 let isPlaying = false;
 let lastNoteTime = 0;
+let barElements = []; // 막대 엘리먼트 저장
 
-function initCanvas() {
-    canvas = document.getElementById('waveform');
-    canvasCtx = canvas.getContext('2d');
-    // 캔버스 크기 조정
-    canvas.width = 80;
-    canvas.height = window.innerHeight * 0.9;
+// 음계 막대 UI 동적 생성
+function createNoteBars() {
+    const container = document.getElementById('visualizer');
+    // 낮은 음부터 위로 쌓이도록 역순 생성
+    for (let i = NOTES.length - 1; i >= 0; i--) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'note-bar-wrapper';
+        wrapper.id = `note-bar-${i}`;
+
+        const label = document.createElement('div');
+        label.className = 'note-label';
+        label.innerText = NOTES[i];
+
+        const barBg = document.createElement('div');
+        barBg.className = 'bar-bg';
+
+        const barFill = document.createElement('div');
+        barFill.className = 'bar-fill';
+        barFill.id = `bar-fill-${i}`;
+
+        barBg.appendChild(barFill);
+        wrapper.appendChild(label);
+        wrapper.appendChild(barBg);
+        container.appendChild(wrapper);
+        barElements[i] = wrapper; // 나중에 접근하기 위해 저장
+    }
 }
 
 async function startGame() {
@@ -147,10 +164,9 @@ async function startGame() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         micStream = audioCtx.createMediaStreamSource(stream);
         analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256; // 파형용
+        analyser.fftSize = 1024; 
         micStream.connect(analyser);
-        initCanvas();
-        drawWaveform(); // 파형 그리기 시작
+        createNoteBars(); // 막대 UI 생성
     }
     document.getElementById('start-btn').style.display = 'none';
     startNewLevel();
@@ -158,7 +174,7 @@ async function startGame() {
 
 function startNewLevel() {
     currentStep = 0;
-    lives = 3; // 레벨마다 기회 3번 초기화
+    lives = 3; 
     updateLifeUI();
     questionSequence = [];
     document.getElementById('level-info').innerText = `Level ${level}`;
@@ -174,14 +190,17 @@ async function playQuestion() {
     isPlaying = true;
     isListening = false;
     document.getElementById('replay-btn').style.visibility = 'hidden';
-    document.getElementById('status-text').innerText = "음정을 듣고 기억하세요!";
+    document.getElementById('status-text').innerText = "문제를 듣고 기억하세요!";
     
     let combinedText = "";
     for (let idx of questionSequence) {
         document.getElementById('target-display').innerText = NOTES[idx];
         combinedText += NOTES[idx] + " ";
+        // 문제 재생 시 해당 막대 시각화
+        updateVisualizer(idx, 100); 
         await playTone(FREQS[idx]);
-        await new Promise(r => setTimeout(r, 400));
+        updateVisualizer(idx, 0); // 재생 후 초기화
+        await new Promise(r => setTimeout(r, 300));
     }
 
     document.getElementById('target-display').innerText = combinedText.trim();
@@ -213,25 +232,29 @@ function detectLoop() {
 
     const buffer = new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(buffer);
-    const pitch = getPitch(buffer, audioCtx.sampleRate);
+    const result = getPitchAndVolume(buffer, audioCtx.sampleRate);
 
-    if (pitch !== -1) {
-        const now = Date.now();
-        if (now - lastNoteTime > 800) { // 중복 인식 방지 간격
-            const semi = Math.round(12 * Math.log2(pitch / 261.63));
-            const mapping = {0:0, 2:1, 4:2, 5:3, 7:4, 9:5, 11:6};
-            const noteIdx = ((semi % 12) + 12) % 12;
+    // 비주얼라이저 초기화
+    for(let i=0; i<NOTES.length; i++) updateVisualizer(i, 0);
 
-            if (mapping.hasOwnProperty(noteIdx)) {
-                const detectedIdx = mapping[noteIdx];
-                document.getElementById('user-pitch-info').innerText = `인식: ${NOTES[detectedIdx]}`;
+    if (result.pitch !== -1) {
+        const semi = Math.round(12 * Math.log2(result.pitch / 261.63));
+        const mapping = {0:0, 2:1, 4:2, 5:3, 7:4, 9:5, 11:6};
+        const noteIdx = ((semi % 12) + 12) % 12;
+
+        if (mapping.hasOwnProperty(noteIdx)) {
+            const detectedIdx = mapping[noteIdx];
+            // 볼륨에 비례하여 막대 채우기 (고무줄 효과)
+            const fillPercent = Math.min(100, result.volume * 200); 
+            updateVisualizer(detectedIdx, fillPercent, true);
+
+            const now = Date.now();
+            // 일정 볼륨 이상일 때만 정답 판정
+            if (now - lastNoteTime > 800 && result.volume > 0.05) { 
                 lastNoteTime = now;
 
                 if (detectedIdx === questionSequence[currentStep]) {
                     currentStep++;
-                    document.getElementById('mic-visual').classList.add('active-mic');
-                    setTimeout(() => document.getElementById('mic-visual').classList.remove('active-mic'), 200);
-
                     if (currentStep >= questionSequence.length) {
                         isListening = false;
                         score += 50;
@@ -240,6 +263,8 @@ function detectLoop() {
                         level++;
                         setTimeout(startNewLevel, 1200);
                         return;
+                    } else {
+                        document.getElementById('status-text').innerText = `맞았습니다! (${currentStep}/${level})`;
                     }
                 } else {
                     lives--;
@@ -257,33 +282,19 @@ function detectLoop() {
     requestAnimationFrame(detectLoop);
 }
 
-function updateLifeUI() {
-    document.getElementById('life-ui').innerText = "♥".repeat(lives) + "♡".repeat(3 - lives);
+// 비주얼라이저 막대 업데이트
+function updateVisualizer(idx, percent, isActive = false) {
+    const fill = document.getElementById(`bar-fill-${idx}`);
+    const wrapper = barElements[idx];
+    if (fill && wrapper) {
+        fill.style.width = `${percent}%`;
+        if (isActive) wrapper.classList.add('active-bar');
+        else wrapper.classList.remove('active-bar');
+    }
 }
 
-function drawWaveform() {
-    requestAnimationFrame(drawWaveform);
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteTimeDomainData(dataArray);
-
-    canvasCtx.fillStyle = '#2d1b15';
-    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-    canvasCtx.lineWidth = 2;
-    canvasCtx.strokeStyle = '#ffb74d';
-    canvasCtx.beginPath();
-
-    const sliceHeight = canvas.height / dataArray.length;
-    let y = 0;
-
-    for (let i = 0; i < dataArray.length; i++) {
-        const v = dataArray[i] / 128.0;
-        const x = (v * canvas.width) / 2;
-
-        if (i === 0) canvasCtx.moveTo(x, y);
-        else canvasCtx.lineTo(x, y);
-        y += sliceHeight;
-    }
-    canvasCtx.stroke();
+function updateLifeUI() {
+    document.getElementById('life-ui').innerText = "♥".repeat(lives) + "♡".repeat(3 - lives);
 }
 
 function showGameOver() {
@@ -291,11 +302,12 @@ function showGameOver() {
     document.getElementById('final-score').innerText = score;
 }
 
-// 피치 검출 (YIN/AMDF 근사 로직)
-function getPitch(buffer, sampleRate) {
-    let rms = 0;
-    for (let i = 0; i < buffer.length; i++) rms += buffer[i] * buffer[i];
-    if (Math.sqrt(rms / buffer.length) < 0.03) return -1;
+// 피치 및 볼륨 동시 검출
+function getPitchAndVolume(buffer, sampleRate) {
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
+    const rms = Math.sqrt(sum / buffer.length);
+    if (rms < 0.03) return { pitch: -1, volume: rms }; // 소리가 너무 작으면 무시
 
     let bestP = -1;
     let minD = Infinity;
@@ -304,7 +316,7 @@ function getPitch(buffer, sampleRate) {
         for (let i = 0; i < buffer.length - p; i++) d += Math.abs(buffer[i] - buffer[i + p]);
         if (d < minD) { minD = d; bestP = p; }
     }
-    return sampleRate / bestP;
+    return { pitch: sampleRate / bestP, volume: rms };
 }
 </script>
 </body>
