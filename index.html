@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pitch Copy Game</title>
+    <style>
+        body { text-align: center; font-family: 'Pretendard', sans-serif; background: #f0f2f5; padding-top: 50px; }
+        .container { background: white; width: 80%; max-width: 400px; margin: auto; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        #level-info { font-size: 1.2rem; color: #666; }
+        #target-notes { font-size: 2.5rem; font-weight: bold; margin: 20px 0; color: #007aff; min-height: 60px; }
+        #user-note { font-size: 1.5rem; color: #ff9500; height: 30px; }
+        button { background: #007aff; color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 1.1rem; cursor: pointer; transition: 0.2s; }
+        button:active { transform: scale(0.95); }
+        .status-msg { margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="level-info">Level 1</div>
+    <div id="target-notes">준비되셨나요?</div>
+    <div id="user-note">내 목소리: -</div>
+    <p id="instruction">시작 버튼을 눌러 소리를 듣고 따라 하세요!</p>
+    <button id="start-btn" onclick="initGame()">게임 시작</button>
+    <div class="status-msg" id="status"></div>
+</div>
+
+<script>
+/* -----------------------------------------------------------
+   1. 기본 설정 및 변수
+----------------------------------------------------------- */
+const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const FREQS = [261.63, 277.18, 293.66, 311.13, 329.63, 349.23, 369.99, 392.00, 415.30, 440.00, 466.16, 493.88]; // 도(C4)~시(B4) 주파수
+
+let currentLevel = 1;      // 현재 레벨 (문제 개수)
+let targetSequence = [];   // 맞춰야 할 음들의 배열
+let userProgress = 0;      // 사용자가 현재 순서에서 몇 번째 음까지 맞췄는지
+let isListening = false;   // 현재 마이크로 음을 체크 중인지 여부
+
+let audioCtx, analyser, microphone;
+
+/* -----------------------------------------------------------
+   2. 게임 시작 및 레벨 세팅
+----------------------------------------------------------- */
+async function initGame() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    document.getElementById('start-btn').style.display = 'none';
+    startNewLevel();
+}
+
+function startNewLevel() {
+    userProgress = 0;
+    targetSequence = [];
+    document.getElementById('level-info').innerText = `Level ${currentLevel}`;
+    document.getElementById('status').innerText = "문제를 듣는 중...";
+    
+    // 레벨 숫자만큼 랜덤 음계 생성
+    for(let i=0; i < currentLevel; i++) {
+        let randomIndex = Math.floor(Math.random() * NOTES.length);
+        targetSequence.push(randomIndex);
+    }
+
+    playSequence(); // 생성된 음들을 소리로 들려줌
+}
+
+/* -----------------------------------------------------------
+   3. 소리 재생 로직 (문제 들려주기)
+----------------------------------------------------------- */
+async function playSequence() {
+    isListening = false;
+    let displayStr = "";
+    
+    for (let i = 0; i < targetSequence.length; i++) {
+        let noteIdx = targetSequence[i];
+        displayStr += NOTES[noteIdx] + " ";
+        document.getElementById('target-notes').innerText = displayStr;
+        
+        await playTone(FREQS[noteIdx], 0.6); // 0.6초간 재생
+        await new Promise(r => setTimeout(r, 200)); // 음 사이 간격
+    }
+    
+    document.getElementById('status').innerText = "이제 따라 부르세요!";
+    startListening();
+}
+
+function playTone(freq, duration) {
+    return new Promise(resolve => {
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.stop(audioCtx.currentTime + duration);
+        setTimeout(resolve, duration * 1000);
+    });
+}
+
+/* -----------------------------------------------------------
+   4. 음성 분석 및 판정 로직
+----------------------------------------------------------- */
+async function startListening() {
+    if (!microphone) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        microphone = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        microphone.connect(analyser);
+    }
+    isListening = true;
+    checkPitch();
+}
+
+function checkPitch() {
+    if (!isListening) return;
+
+    const buffer = new Float32Array(analyser.fftSize);
+    analyser.getFloatTimeDomainData(buffer);
+    
+    const pitch = autoCorrelate(buffer, audioCtx.sampleRate);
+
+    if (pitch !== -1) {
+        const noteIdx = getNoteIndex(pitch);
+        const noteName = NOTES[noteIdx];
+        document.getElementById('user-note').innerText = `내 목소리: ${noteName}`;
+
+        // 정답 판정: 현재 맞춰야 할 순서의 음과 일치하는가?
+        if (noteIdx === targetSequence[userProgress]) {
+            userProgress++;
+            document.getElementById('status').innerText = `정답! (${userProgress}/${currentLevel})`;
+            
+            if (userProgress >= currentLevel) {
+                // 레벨 클리어
+                isListening = false;
+                currentLevel++;
+                setTimeout(() => {
+                    alert("성공! 다음 레벨로 넘어갑니다.");
+                    startNewLevel();
+                }, 500);
+                return;
+            }
+        }
+    }
+    requestAnimationFrame(checkPitch);
+}
+
+// 주파수를 음계 인덱스로 변환하는 공식
+function getNoteIndex(frequency) {
+    const semiTone = 12 * (Math.log(frequency / 261.63) / Math.log(2)); // C4 기준
+    return Math.round(semiTone) % 12;
+}
+
+// 피치 검출 알고리즘 (주파수 찾기)
+function autoCorrelate(buffer, sampleRate) {
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
+    if (Math.sqrt(sum / buffer.length) < 0.02) return -1; // 소리가 너무 작으면 -1 반환
+
+    // 실제로는 훨씬 복잡한 로직이 필요하지만, 학습용으로 간단히 구현
+    // 정밀도를 높이려면 PitchDetect.js 같은 외부 라이브러리 사용 권장
+    let bestOffset = -1;
+    let bestCorrelation = 0;
+    for (let offset = 20; offset < 500; offset++) {
+        let correlation = 0;
+        for (let i = 0; i < buffer.length - offset; i++) {
+            correlation += buffer[i] * buffer[i + offset];
+        }
+        if (correlation > bestCorrelation) {
+            bestCorrelation = correlation;
+            bestOffset = offset;
+        }
+    }
+    return sampleRate / bestOffset;
+}
+</script>
+
+</body>
+</html>
