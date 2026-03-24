@@ -11,9 +11,7 @@
             --accent: #d7ccc8;
             --gold: #ffb74d;
             --red-point: #ff5252;
-            --low-blue: #448aff;
-            --mid-green: #66bb6a;
-            --high-red: #ef5350;
+            --block-empty: #3e2723;
         }
 
         body { 
@@ -31,49 +29,52 @@
             position: relative; overflow: hidden;
         }
 
-        /* --- 1. 왼쪽 세로형 오디오 레벨/피치 그래프 --- */
-        .pitch-visualizer-aside {
-            width: 60px; height: 100%;
-            background: rgba(0,0,0,0.3);
+        /* --- 1. 왼쪽 24개 블록 피치/데시벨 미터 --- */
+        .meter-aside {
+            width: 50px; height: 100%;
+            background: rgba(0,0,0,0.4);
+            display: flex; flex-direction: column-reverse; /* 아래부터 쌓임 */
+            padding: 10px 5px; box-sizing: border-box; gap: 4px;
             border-right: 1px solid #6d4c41;
-            position: relative;
-            display: flex; align-items: flex-end; /* 아래에서 위로 차오름 */
         }
-        #pitch-bar {
-            width: 100%;
-            height: 0%; /* 실시간 가변 */
-            transition: height 0.1s ease-out, background-color 0.3s;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        .block {
+            width: 100%; flex: 1;
+            background-color: var(--block-empty);
+            border-radius: 2px;
+            transition: background-color 0.1s;
         }
+        /* 블록 색상 정의 (24개 기준) */
+        /* 1-8번: 파랑, 9-16번: 초록, 17-24번: 빨강 */
+        .block.low.active { background-color: #448aff; box-shadow: 0 0 8px #448aff; }
+        .block.mid.active { background-color: #66bb6a; box-shadow: 0 0 8px #66bb6a; }
+        .block.high.active { background-color: #ef5350; box-shadow: 0 0 8px #ef5350; }
 
         /* 2. 메인 게임 영역 */
         .game-area {
             flex: 1; display: flex; flex-direction: column;
-            padding: 30px 20px; box-sizing: border-box;
+            padding: 30px 15px; box-sizing: border-box;
             justify-content: space-between; align-items: center;
         }
 
         .header { text-align: center; width: 100%; }
-        .score-row { display: flex; justify-content: space-between; color: var(--gold); font-weight: bold; margin-bottom: 5px; }
-        .brand { font-size: 0.75rem; letter-spacing: 1px; opacity: 0.7; }
-        .title { font-size: 1.5rem; font-weight: bold; color: white; margin: 5px 0; }
+        .score-row { display: flex; justify-content: space-between; color: var(--gold); font-weight: bold; }
+        .brand { font-size: 0.7rem; letter-spacing: 1px; opacity: 0.7; }
+        .title { font-size: 1.4rem; font-weight: bold; color: white; margin: 5px 0; }
 
-        #status-msg { font-size: 1.1rem; text-align: center; height: 3rem; color: #fff; line-height: 1.4; }
-        #target-display { font-size: 2.2rem; font-weight: 900; color: white; margin: 20px 0; min-height: 2.5rem; }
+        #status-msg { font-size: 1rem; text-align: center; height: 3rem; color: #fff; line-height: 1.4; }
+        #target-display { font-size: 1.8rem; font-weight: 900; color: white; margin: 15px 0; min-height: 2rem; border-bottom: 2px solid var(--gold); padding-bottom: 5px; }
         
-        .life-ui { color: var(--red-point); font-size: 1.3rem; }
+        .life-ui { color: var(--red-point); font-size: 1.2rem; }
 
         .btn-group { display: flex; flex-direction: column; gap: 10px; width: 100%; align-items: center; }
         button { 
-            background: #8d6e63; color: white; border: none; padding: 16px 40px; 
-            border-radius: 35px; font-size: 1.2rem; font-weight: bold; cursor: pointer;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: 0.2s;
+            background: #8d6e63; color: white; border: none; padding: 15px 40px; 
+            border-radius: 35px; font-size: 1.1rem; font-weight: bold; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
-        button:active { transform: scale(0.95); }
-        #replay-btn { background: rgba(255,255,255,0.1); border: 1px solid var(--accent); font-size: 0.9rem; visibility: hidden; }
+        #replay-btn { background: rgba(255,255,255,0.1); border: 1px solid var(--accent); font-size: 0.8rem; visibility: hidden; }
 
-        /* 게임 종료 오버레이 */
-        #game-over-screen {
+        #game-over {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(45, 27, 21, 0.98); z-index: 100;
             display: none; flex-direction: column; align-items: center; justify-content: center;
@@ -83,15 +84,14 @@
 <body>
 
 <div class="container">
-    <div class="pitch-visualizer-aside">
-        <div id="pitch-bar"></div>
-    </div>
+    <div class="meter-aside" id="meter">
+        </div>
 
     <div class="game-area">
-        <div id="game-over-screen">
-            <h2 style="color:var(--red-point); font-size: 3rem;">GAME OVER</h2>
-            <p style="font-size: 1.5rem;">SCORE: <span id="final-score">0</span></p>
-            <button onclick="location.reload()">RETRY</button>
+        <div id="game-over">
+            <h2 style="color:var(--red-point); font-size: 2.5rem;">GAME OVER</h2>
+            <p>최종 점수: <span id="final-score">0</span></p>
+            <button onclick="location.reload()">다시 시작</button>
         </div>
 
         <div class="header">
@@ -104,22 +104,19 @@
             <div id="level-tag" style="color: var(--gold);">LEVEL 1</div>
         </div>
 
-        <div id="status-msg">준비되셨나요? 시작 버튼을 누르세요.</div>
+        <div id="status-msg">버튼을 눌러 게임을 시작하세요.</div>
         <div id="target-display">-</div>
 
-        <div id="current-note-name" style="font-size: 1.2rem; font-weight: bold; color: var(--gold); height: 1.5rem;"></div>
+        <div id="user-note-info" style="font-weight: bold; color: var(--gold); height: 1.2rem;"></div>
 
         <div class="btn-group">
-            <button id="replay-btn" onclick="playQuestion()">재생하기 ↻</button>
-            <button id="start-btn" onclick="initAudio()">START GAME</button>
+            <button id="replay-btn" onclick="playQuestion()">문제 다시 듣기 ↻</button>
+            <button id="start-btn" onclick="initGame()">START GAME</button>
         </div>
     </div>
 </div>
 
 <script>
-/* -----------------------------------------------------------
-   [설정] 다이아토닉 C4~B4 주파수 및 음계
------------------------------------------------------------ */
 const NOTES = ['도', '레', '미', '파', '솔', '라', '시'];
 const FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88];
 
@@ -127,8 +124,23 @@ let audioCtx, analyser, micStream;
 let level = 1, score = 0, lives = 3;
 let questionSeq = [], currentStep = 0;
 let isListening = false, isPlaying = false;
+let blocks = [];
 
-async function initAudio() {
+// 1. 24개 블록 생성
+function createMeter() {
+    const meter = document.getElementById('meter');
+    for (let i = 0; i < 24; i++) {
+        const div = document.createElement('div');
+        div.className = 'block';
+        if (i < 8) div.classList.add('low');
+        else if (i < 16) div.classList.add('mid');
+        else div.classList.add('high');
+        meter.appendChild(div);
+        blocks.push(div);
+    }
+}
+
+async function initGame() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -136,17 +148,15 @@ async function initAudio() {
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = 2048;
         micStream.connect(analyser);
+        createMeter();
     }
     document.getElementById('start-btn').style.display = 'none';
     startNewLevel();
 }
 
 function startNewLevel() {
-    lives = 3; // 레벨당 3번의 기회
-    currentStep = 0;
-    questionSeq = [];
+    lives = 3; currentStep = 0; questionSeq = [];
     updateUI();
-    
     for(let i=0; i < level; i++) {
         questionSeq.push(Math.floor(Math.random() * NOTES.length));
     }
@@ -155,7 +165,10 @@ function startNewLevel() {
 
 async function playQuestion() {
     if (isPlaying) return;
-    isPlaying = true; isListening = false;
+    isPlaying = true; 
+    isListening = false; // 재생 중에는 미터와 인식 비활성화
+    clearMeter(); 
+
     document.getElementById('replay-btn').style.visibility = 'hidden';
     document.getElementById('status-msg').innerText = "문제를 듣고 기억하세요.";
     
@@ -163,16 +176,16 @@ async function playQuestion() {
     for (let idx of questionSeq) {
         document.getElementById('target-display').innerText = NOTES[idx];
         textOut += NOTES[idx] + " ";
-        // 소리 재생 시 그래프도 해당 음 높이로 보여줌
-        updatePitchBar(idx);
         await playTone(FREQS[idx]);
-        await new Promise(r => setTimeout(r, 350));
+        await new Promise(r => setTimeout(r, 400));
     }
     
     document.getElementById('target-display').innerText = textOut.trim();
-    document.getElementById('status-msg').innerText = "이제 똑같이 따라 부르세요!";
+    document.getElementById('status-msg').innerText = "똑같이 따라 부르세요!";
     document.getElementById('replay-btn').style.visibility = 'visible';
-    isPlaying = false; isListening = true;
+    
+    isPlaying = false; 
+    isListening = true;
     requestAnimationFrame(updateFrame);
 }
 
@@ -189,81 +202,81 @@ function playTone(freq) {
     });
 }
 
-/* -----------------------------------------------------------
-   [핵심] 실시간 그래프 업데이트 및 판정 로직
------------------------------------------------------------ */
+// 2. 실시간 프레임 업데이트 (사용자 응답 시에만 작동)
 function updateFrame() {
     if (!isListening) return;
 
     const buffer = new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(buffer);
+    
+    // 볼륨(데시벨) 계산
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
+    const rms = Math.sqrt(sum / buffer.length);
+    
+    // 피치 계산
     const pitch = getPitch(buffer, audioCtx.sampleRate);
 
-    if (pitch !== -1) {
-        // C4(도) ~ B4(시) 사이의 위치를 0~100%로 변환
-        const midi = 12 * Math.log2(pitch / 261.63);
-        const noteIdxRaw = Math.max(0, Math.min(6.5, (midi / 2))); // 대략적인 인덱스 위치
-        
-        // 그래프 높이 업데이트
-        updatePitchBar(midi);
+    // 미터 업데이트 (소리가 날 때만)
+    if (rms > 0.01) {
+        // 음 높이에 따라 블록 활성화 개수 결정 (C4~B4 범위)
+        let activeCount = 0;
+        if (pitch !== -1) {
+            const midi = 12 * Math.log2(pitch / 261.63); // 도(0) ~ 시(11)
+            activeCount = Math.round(((midi + 2) / 15) * 24); // 범위를 24개 블록으로 매핑
+            activeCount = Math.max(1, Math.min(24, activeCount));
+        }
+        updateMeter(activeCount);
+    } else {
+        clearMeter();
+    }
 
-        // 정답 판정 (다이아토닉 인덱스 기반)
-        const noteIdx = Math.round(midi);
+    // 정답 판정
+    if (pitch !== -1 && rms > 0.05) {
+        const midi = Math.round(12 * Math.log2(pitch / 261.63));
         const mapping = {0:0, 2:1, 4:2, 5:3, 7:4, 9:5, 11:6};
-        const currentMod = ((noteIdx % 12) + 12) % 12;
+        const currentMod = ((midi % 12) + 12) % 12;
 
         if (mapping.hasOwnProperty(currentMod)) {
             const detected = mapping[currentMod];
-            document.getElementById('current-note-name').innerText = `인식 중: ${NOTES[detected]}`;
+            document.getElementById('user-note-info').innerText = `인식: ${NOTES[detected]}`;
 
             if (detected === questionSeq[currentStep]) {
                 currentStep++;
                 if (currentStep >= questionSeq.length) {
                     isListening = false;
                     score += 50;
-                    document.getElementById('status-msg').innerText = "통과! +50점";
+                    document.getElementById('status-msg').innerText = "성공! 다음 레벨로.";
                     level++;
                     setTimeout(startNewLevel, 1300);
                     return;
-                } else {
-                    document.getElementById('status-msg').innerText = `좋아요! (${currentStep}/${level})`;
                 }
-            } else if (detected !== questionSeq[currentStep] && buffer[0] > 0.1) {
-                // 틀렸을 때 처리 (너무 짧은 소음 방지를 위해 볼륨 체크)
+            } else if (detected !== questionSeq[currentStep]) {
                 lives--;
                 updateUI();
-                if (lives <= 0) {
-                    showGameOver();
-                } else {
+                if (lives <= 0) showGameOver();
+                else {
                     isListening = false;
-                    document.getElementById('status-msg').innerText = "틀렸습니다! 다시 시도...";
+                    document.getElementById('status-msg').innerText = "틀렸습니다! 다시 듣기...";
                     setTimeout(playQuestion, 1500);
+                    return;
                 }
-                return;
             }
         }
-    } else {
-        document.getElementById('pitch-bar').style.height = '0%';
-        document.getElementById('current-note-name').innerText = "";
     }
     requestAnimationFrame(updateFrame);
 }
 
-// 왼쪽 바 색상 및 높이 업데이트 (파랑 -> 초록 -> 빨강)
-function updatePitchBar(midiValue) {
-    const bar = document.getElementById('pitch-bar');
-    // C4(0) ~ B4(11) 범위를 백분율로 환산
-    const percent = Math.min(100, Math.max(5, (midiValue / 11) * 100));
-    bar.style.height = percent + '%';
+function updateMeter(count) {
+    blocks.forEach((b, i) => {
+        if (i < count) b.classList.add('active');
+        else b.classList.remove('active');
+    });
+}
 
-    // 색상 결정 로직
-    if (percent < 35) {
-        bar.style.backgroundColor = 'var(--low-blue)'; // 낮은 음 (파랑)
-    } else if (percent < 70) {
-        bar.style.backgroundColor = 'var(--mid-green)'; // 중간 음 (초록)
-    } else {
-        bar.style.backgroundColor = 'var(--high-red)'; // 높은 음 (빨강)
-    }
+function clearMeter() {
+    blocks.forEach(b => b.classList.remove('active'));
+    document.getElementById('user-note-info').innerText = "";
 }
 
 function updateUI() {
@@ -274,16 +287,11 @@ function updateUI() {
 
 function showGameOver() {
     isListening = false;
-    document.getElementById('game-over-screen').style.display = 'flex';
+    document.getElementById('game-over').style.display = 'flex';
     document.getElementById('final-score').innerText = score;
 }
 
-// 피치 검출 알고리즘 (AMDF)
 function getPitch(buffer, sampleRate) {
-    let rms = 0;
-    for (let i = 0; i < buffer.length; i++) rms += buffer[i] * buffer[i];
-    if (Math.sqrt(rms / buffer.length) < 0.05) return -1;
-
     let bestP = -1, minD = Infinity;
     for (let p = 35; p < 200; p++) {
         let d = 0;
